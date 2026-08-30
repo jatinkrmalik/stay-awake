@@ -6,9 +6,13 @@ I got tired of long AI agent runs dying because Ubuntu decided the computer was 
 
 ![Stay Awake icon](data/icons/stay-awake-on.svg)
 
-## Install
+## GNOME only
 
-GNOME only. Tested on Ubuntu. Other GNOME desktops (Pop!_OS, Debian, Fedora, Zorin) should work if AppIndicator is available.
+This only works on GNOME. I built and use it on Ubuntu. Other GNOME desktops (Pop!_OS, Fedora Workstation, Debian GNOME, Zorin) should be fine if the AppIndicator tray is available.
+
+It does not work on KDE Plasma, XFCE, Cinnamon, MATE, or compositors like Sway and Hyprland. Those use different idle and power settings, and the top-bar icon needs GNOME's tray. `./install.sh` checks for GNOME and exits if it cannot find it.
+
+## Install
 
 ```bash
 git clone https://github.com/jatinkrmalik/stay-awake.git
