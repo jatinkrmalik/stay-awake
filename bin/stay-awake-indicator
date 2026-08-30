@@ -39,6 +39,7 @@ class StayAwakeIndicator(Gtk.Application):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
         self._indicator = None
         self._toggle = None
+        self._autostart = None
         self._status = None
         self._updating = False
         self._monitor = None
@@ -48,8 +49,7 @@ class StayAwakeIndicator(Gtk.Application):
             return
         self.hold()
         self._build()
-        if is_on():
-            subprocess.run([BIN, "on", "--quiet"], check=False)
+        subprocess.run([BIN, "restore", "--quiet"], check=False)
         self._watch_state()
         self._refresh()
 
@@ -68,6 +68,10 @@ class StayAwakeIndicator(Gtk.Application):
         self._toggle = Gtk.CheckMenuItem.new_with_label("Keep awake")
         self._toggle.connect("toggled", self._on_toggle)
         menu.append(self._toggle)
+
+        self._autostart = Gtk.CheckMenuItem.new_with_label("Start on login")
+        self._autostart.connect("toggled", self._on_autostart)
+        menu.append(self._autostart)
 
         self._status = Gtk.MenuItem.new_with_label("")
         self._status.set_sensitive(False)
@@ -91,6 +95,24 @@ class StayAwakeIndicator(Gtk.Application):
         subprocess.run([BIN, "on" if item.get_active() else "off"], check=False)
         self._refresh()
 
+    def _on_autostart(self, item):
+        if self._updating:
+            return
+        subprocess.run(
+            [BIN, "autostart", "on" if item.get_active() else "off"],
+            check=False,
+        )
+        self._refresh()
+
+    def _autostart_enabled(self):
+        result = subprocess.run(
+            [BIN, "autostart", "status"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip() == "on"
+
     def _on_scroll(self, _indicator, delta, direction):
         if delta == 0:
             return
@@ -102,9 +124,12 @@ class StayAwakeIndicator(Gtk.Application):
 
     def _refresh(self):
         on = is_on()
-        if self._toggle is not None:
+        if self._toggle is not None or self._autostart is not None:
             self._updating = True
-            self._toggle.set_active(on)
+            if self._toggle is not None:
+                self._toggle.set_active(on)
+            if self._autostart is not None:
+                self._autostart.set_active(self._autostart_enabled())
             self._updating = False
         if self._status is not None:
             self._status.set_label(
