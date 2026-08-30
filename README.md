@@ -1,10 +1,13 @@
-# Stay Awake
+# <img src="data/icons/stay-awake-on.svg" width="36" height="36" alt=""> Stay Awake
+
+[![License: MIT](https://img.shields.io/github/license/jatinkrmalik/stay-awake)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/jatinkrmalik/stay-awake)](https://github.com/jatinkrmalik/stay-awake/releases/latest)
+[![GNOME only](https://img.shields.io/badge/desktop-GNOME%20only-1b4332)](#gnome-only)
+[![Stars](https://img.shields.io/github/stars/jatinkrmalik/stay-awake?style=flat)](https://github.com/jatinkrmalik/stay-awake/stargazers)
 
 A GNOME tray app that stops your monitor going dark and your machine sleeping on idle. Click the coffee cup in the top bar to toggle it.
 
 I got tired of long AI agent runs dying because Ubuntu decided the computer was idle, so I made this.
-
-![Stay Awake icon](data/icons/stay-awake-on.svg)
 
 ## GNOME only
 
