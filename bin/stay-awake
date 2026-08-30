@@ -1,0 +1,225 @@
+#!/usr/bin/env bash
+# Toggle GNOME screen blanking, auto-lock, and idle suspend.
+set -euo pipefail
+
+VERSION="0.1.0"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/stay-awake"
+STATE_FILE="$STATE_DIR/state"
+SAVED_FILE="$STATE_DIR/saved-gsettings"
+PID_FILE="$STATE_DIR/inhibit.pid"
+
+icon_path() {
+  local name="$1"
+  local candidates=(
+    "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/scalable/apps/${name}.svg"
+    "${STATE_DIR}/icons/${name}.svg"
+    "${SCRIPT_DIR}/../data/icons/${name}.svg"
+  )
+  local p
+  for p in "${candidates[@]}"; do
+    if [[ -f "$p" ]]; then
+      printf '%s\n' "$p"
+      return 0
+    fi
+  done
+  printf '%s\n' "$name"
+}
+
+ICON_ON="$(icon_path stay-awake-on)"
+ICON_OFF="$(icon_path stay-awake-off)"
+
+KEYS=(
+  "org.gnome.desktop.session idle-delay"
+  "org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type"
+  "org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type"
+  "org.gnome.desktop.screensaver idle-activation-enabled"
+  "org.gnome.desktop.screensaver lock-enabled"
+)
+
+mkdir -p "$STATE_DIR"
+
+usage() {
+  cat <<'EOF'
+Usage: stay-awake [command] [--quiet]
+
+Commands:
+  toggle       Flip on/off (default)
+  on           Keep the screen on and block idle sleep
+  off          Restore the previous idle and sleep settings
+  status       Print the current state
+  indicator    Start the top-bar icon
+  version      Print the version
+
+Options:
+  -q, --quiet  Skip desktop notifications
+  -h, --help   Show this help
+EOF
+}
+
+is_on() {
+  [[ -f "$STATE_FILE" ]] && [[ "$(cat "$STATE_FILE" 2>/dev/null || true)" == "on" ]]
+}
+
+save_current_if_needed() {
+  if [[ -f "$SAVED_FILE" ]]; then
+    return
+  fi
+  local idle
+  idle="$(gsettings get org.gnome.desktop.session idle-delay 2>/dev/null || true)"
+  if [[ "$idle" == *" 0" ]] || [[ "$idle" == "uint32 0" ]]; then
+    return
+  fi
+  local schema key
+  : >"$SAVED_FILE"
+  for pair in "${KEYS[@]}"; do
+    schema="${pair%% *}"
+    key="${pair#* }"
+    printf '%s %s %s\n' "$schema" "$key" "$(gsettings get "$schema" "$key")" >>"$SAVED_FILE"
+  done
+}
+
+gset() {
+  gsettings set "$1" "$2" "$3"
+}
+
+stop_inhibit() {
+  local pid=""
+  if [[ -f "$PID_FILE" ]]; then
+    pid="$(cat "$PID_FILE" 2>/dev/null || true)"
+  fi
+  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  fi
+  rm -f "$PID_FILE"
+}
+
+start_inhibit() {
+  stop_inhibit
+  systemd-inhibit \
+    --what=idle:sleep \
+    --who="Stay Awake" \
+    --why="Keep the machine awake" \
+    --mode=block \
+    sleep infinity >/dev/null 2>&1 &
+  echo $! >"$PID_FILE"
+  disown $! 2>/dev/null || true
+}
+
+restore_settings() {
+  if [[ -f "$SAVED_FILE" ]]; then
+    local schema key rest
+    while read -r schema key rest; do
+      [[ -n "${schema:-}" ]] || continue
+      gsettings set "$schema" "$key" "$rest"
+    done <"$SAVED_FILE"
+    return
+  fi
+  local pair schema key
+  for pair in "${KEYS[@]}"; do
+    schema="${pair%% *}"
+    key="${pair#* }"
+    gsettings reset "$schema" "$key" 2>/dev/null || true
+  done
+}
+
+notify() {
+  [[ "$QUIET" == 1 ]] && return 0
+  local title="$1" body="$2" icon="$3"
+  notify-send -a "Stay Awake" -i "$icon" -u normal "$title" "$body" 2>/dev/null || true
+}
+
+turn_on() {
+  save_current_if_needed
+  gset org.gnome.desktop.session idle-delay 0
+  gset org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing
+  gset org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type nothing
+  gset org.gnome.desktop.screensaver idle-activation-enabled false
+  gset org.gnome.desktop.screensaver lock-enabled false
+  start_inhibit
+  echo on >"$STATE_FILE"
+  notify "Stay Awake is ON" \
+    "Monitor stays on. The computer will not sleep from idle." \
+    "$ICON_ON"
+}
+
+turn_off() {
+  restore_settings
+  stop_inhibit
+  echo off >"$STATE_FILE"
+  notify "Stay Awake is OFF" \
+    "Normal screen timeout and sleep are back." \
+    "$ICON_OFF"
+}
+
+status() {
+  if is_on; then
+    echo "Stay Awake is ON"
+  else
+    echo "Stay Awake is OFF"
+  fi
+  echo "idle-delay=$(gsettings get org.gnome.desktop.session idle-delay)"
+  echo "sleep-ac=$(gsettings get org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type)"
+  echo "sleep-battery=$(gsettings get org.gnome.settings-daemon.plugins.power sleep-inactive-battery-type)"
+  echo "screensaver=$(gsettings get org.gnome.desktop.screensaver idle-activation-enabled)"
+  echo "lock=$(gsettings get org.gnome.desktop.screensaver lock-enabled)"
+  if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null; then
+    echo "inhibit=active pid=$(cat "$PID_FILE")"
+  else
+    echo "inhibit=inactive"
+  fi
+}
+
+start_indicator() {
+  local indicator=""
+  local candidate
+  for candidate in \
+    "$SCRIPT_DIR/stay-awake-indicator" \
+    "$HOME/.local/bin/stay-awake-indicator"
+  do
+    if [[ -x "$candidate" ]]; then
+      indicator="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$indicator" ]]; then
+    echo "stay-awake-indicator not found. Run install.sh first." >&2
+    exit 1
+  fi
+  exec "$indicator" "$@"
+}
+
+QUIET=0
+POS=()
+for a in "$@"; do
+  case "$a" in
+    --quiet|-q) QUIET=1 ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --version|-V|version)
+      echo "stay-awake $VERSION"
+      exit 0
+      ;;
+    *) POS+=("$a") ;;
+  esac
+done
+
+cmd="${POS[0]:-toggle}"
+case "$cmd" in
+  on|enable) turn_on ;;
+  off|disable) turn_off ;;
+  toggle)
+    if is_on; then turn_off; else turn_on; fi
+    ;;
+  status) status ;;
+  indicator) start_indicator "${POS[@]:1}" ;;
+  help) usage ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

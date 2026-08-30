@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""Top-bar toggle for Stay Awake."""
+import os
+import subprocess
+import sys
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+try:
+    gi.require_version("AyatanaAppIndicator3", "0.1")
+    from gi.repository import AyatanaAppIndicator3 as AppIndicator3
+except ValueError:
+    gi.require_version("AppIndicator3", "0.1")
+    from gi.repository import AppIndicator3
+from gi.repository import Gio, GLib, Gtk
+
+APP_ID = "io.github.jatinkrmalik.StayAwake"
+HERE = os.path.dirname(os.path.realpath(__file__))
+BIN = os.path.join(HERE, "stay-awake")
+STATE_DIR = os.path.join(
+    os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+    "stay-awake",
+)
+STATE_FILE = os.path.join(STATE_DIR, "state")
+ICON_DIR = os.path.join(STATE_DIR, "icons")
+
+
+def is_on():
+    try:
+        with open(STATE_FILE, encoding="utf-8") as fh:
+            return fh.read().strip() == "on"
+    except OSError:
+        return False
+
+
+class StayAwakeIndicator(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
+        self._indicator = None
+        self._toggle = None
+        self._status = None
+        self._updating = False
+        self._monitor = None
+
+    def do_activate(self):
+        if self._indicator is not None:
+            return
+        self.hold()
+        self._build()
+        if is_on():
+            subprocess.run([BIN, "on", "--quiet"], check=False)
+        self._watch_state()
+        self._refresh()
+
+    def _build(self):
+        indicator = AppIndicator3.Indicator.new(
+            "stay-awake",
+            "stay-awake-panel-on",
+            AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
+        )
+        indicator.set_icon_theme_path(ICON_DIR)
+        indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        indicator.set_title("Stay Awake")
+
+        menu = Gtk.Menu()
+
+        self._toggle = Gtk.CheckMenuItem.new_with_label("Keep awake")
+        self._toggle.connect("toggled", self._on_toggle)
+        menu.append(self._toggle)
+
+        self._status = Gtk.MenuItem.new_with_label("")
+        self._status.set_sensitive(False)
+        menu.append(self._status)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        quit_item = Gtk.MenuItem.new_with_label("Quit")
+        quit_item.connect("activate", lambda *_: self.quit())
+        menu.append(quit_item)
+        menu.show_all()
+
+        indicator.set_menu(menu)
+        indicator.set_secondary_activate_target(self._toggle)
+        indicator.connect("scroll-event", self._on_scroll)
+        self._indicator = indicator
+
+    def _on_toggle(self, item):
+        if self._updating:
+            return
+        subprocess.run([BIN, "on" if item.get_active() else "off"], check=False)
+        self._refresh()
+
+    def _on_scroll(self, _indicator, delta, direction):
+        if delta == 0:
+            return
+        if direction == 0:
+            subprocess.run([BIN, "on"], check=False)
+        elif direction == 1:
+            subprocess.run([BIN, "off"], check=False)
+        self._refresh()
+
+    def _refresh(self):
+        on = is_on()
+        if self._toggle is not None:
+            self._updating = True
+            self._toggle.set_active(on)
+            self._updating = False
+        if self._status is not None:
+            self._status.set_label(
+                "Screen stays on, sleep is blocked"
+                if on
+                else "Normal screen timeout and sleep"
+            )
+        icon = "stay-awake-panel-on" if on else "stay-awake-panel-off"
+        desc = "Stay Awake is ON" if on else "Stay Awake is OFF"
+        self._indicator.set_icon_full(icon, desc)
+        self._indicator.set_title(desc)
+        return False
+
+    def _watch_state(self):
+        os.makedirs(STATE_DIR, exist_ok=True)
+        if not os.path.exists(STATE_FILE):
+            with open(STATE_FILE, "a", encoding="utf-8"):
+                pass
+        state = Gio.File.new_for_path(STATE_FILE)
+        self._monitor = state.monitor_file(Gio.FileMonitorFlags.NONE, None)
+        self._monitor.connect("changed", lambda *_: GLib.idle_add(self._refresh))
+
+
+def main():
+    if not os.path.isfile(BIN):
+        sys.stderr.write(f"stay-awake CLI not found next to indicator: {BIN}\n")
+        return 1
+    return StayAwakeIndicator().run(sys.argv)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

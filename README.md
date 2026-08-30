@@ -1,0 +1,85 @@
+# Stay Awake
+
+A GNOME tray app that stops your monitor going dark and your machine sleeping on idle. Click the coffee cup in the top bar to toggle it.
+
+I got tired of long AI agent runs dying because Ubuntu decided the computer was idle, so I made this.
+
+![Stay Awake icon](data/icons/stay-awake-on.svg)
+
+## Install
+
+GNOME only. Tested on Ubuntu. Other GNOME desktops (Pop!_OS, Debian, Fedora, Zorin) should work if AppIndicator is available.
+
+```bash
+git clone https://github.com/jatinkrmalik/stay-awake.git
+cd stay-awake
+./install.sh
+```
+
+The script installs into `~/.local` for your user. No sudo. You get:
+
+- a coffee cup in the top bar
+- `stay-awake` on your PATH (if `~/.local/bin` is already there)
+- a desktop shortcut
+- autostart on login
+
+If the icon does not appear, you are probably missing the tray libraries:
+
+```bash
+# Ubuntu / Debian / Pop!_OS
+sudo apt install python3-gi gir1.2-appindicator3-0.1 gnome-shell-extension-appindicator libnotify-bin
+
+# Fedora
+sudo dnf install python3-gobject libappindicator-gtk3 libnotify
+```
+
+Then run `./install.sh` again.
+
+```bash
+./install.sh --no-desktop     # skip the Desktop shortcut
+./install.sh --no-start       # install but do not launch the icon yet
+```
+
+## Usage
+
+Click the cup and check `Keep awake`. Middle-click the cup to toggle without opening the menu. Scroll up for on, down for off.
+
+A gold cup means it is on. A grey cup with a slash means it is off.
+
+```bash
+stay-awake          # toggle
+stay-awake on
+stay-awake off
+stay-awake status
+stay-awake indicator
+```
+
+`Quit` on the menu only hides the icon. It does not re-enable sleep. Uncheck `Keep awake`, or run `stay-awake off`, when you want timeouts back.
+
+## How it works
+
+While it is on, Stay Awake:
+
+- sets GNOME `idle-delay` to 0 so the screen does not blank
+- sets idle suspend on AC and battery to `nothing`
+- turns off screensaver idle activation and auto-lock
+- holds a `systemd-inhibit` block on `idle:sleep`
+
+Your previous values are stored in `~/.local/share/stay-awake/saved-gsettings` and restored when you turn it off. Closing the lid still suspends; that setting is not touched.
+
+## Uninstall
+
+```bash
+cd stay-awake
+./uninstall.sh
+```
+
+This turns Stay Awake off first so your old timeouts come back, then deletes the installed files.
+
+```bash
+./uninstall.sh --keep-state   # leave the saved settings dir in place
+```
+
+## License
+
+MIT. See [LICENSE](LICENSE).

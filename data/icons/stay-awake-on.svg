@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="cup" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd166"/>
+      <stop offset="100%" stop-color="#f4a261"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="58" fill="#1b4332"/>
+  <path d="M40 78c0 14 10 24 24 24s24-10 24-24H40z" fill="url(#cup)"/>
+  <path d="M88 58h8c7 0 12 5 12 12s-5 12-12 12h-8" fill="none" stroke="#ffd166" stroke-width="6" stroke-linecap="round"/>
+  <rect x="38" y="52" width="52" height="10" rx="4" fill="#ffe8a3"/>
+  <path d="M54 44c0-8 4-12 4-18M66 44c0-8 4-12 4-18M78 44c0-8 4-12 4-18" fill="none" stroke="#e9c46a" stroke-width="4" stroke-linecap="round"/>
+</svg>
