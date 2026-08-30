@@ -12,6 +12,8 @@ This only works on GNOME. I built and use it on Ubuntu. Other GNOME desktops (Po
 
 It does not work on KDE Plasma, XFCE, Cinnamon, MATE, or compositors like Sway and Hyprland. Those use different idle and power settings, and the top-bar icon needs GNOME's tray. `./install.sh` checks for GNOME and exits if it cannot find it.
 
+If you want this on another desktop, [open an issue](https://github.com/jatinkrmalik/stay-awake/issues/new) and say which one (KDE, XFCE, Sway, and so on). I built this for the GNOME machine I actually use, but those requests are how I decide what to add next.
+
 ## Install
 
 ```bash
