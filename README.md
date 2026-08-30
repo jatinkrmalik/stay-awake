@@ -15,12 +15,24 @@ It does not work on KDE Plasma, XFCE, Cinnamon, MATE, or compositors like Sway a
 ## Install
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/stay-awake/main/install.sh | bash
+```
+
+That clones the repo into `~/.local/src/stay-awake` and installs into `~/.local`. No sudo. Needs `git`. Extra flags go through `bash -s`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/stay-awake/main/install.sh | bash -s -- --no-desktop
+```
+
+If you already have a checkout:
+
+```bash
 git clone https://github.com/jatinkrmalik/stay-awake.git
 cd stay-awake
 ./install.sh
 ```
 
-The script installs into `~/.local` for your user. No sudo. You get:
+You get:
 
 - a coffee cup in the top bar
 - `stay-awake` on your PATH (if `~/.local/bin` is already there)
@@ -74,14 +86,15 @@ Your previous values are stored in `~/.local/share/stay-awake/saved-gsettings` a
 ## Uninstall
 
 ```bash
-cd stay-awake
-./uninstall.sh
+stay-awake-uninstall
 ```
+
+From a git checkout, `./uninstall.sh` does the same thing. The curl installer leaves a copy at `~/.local/src/stay-awake/uninstall.sh`.
 
 This turns Stay Awake off first so your old timeouts come back, then deletes the installed files.
 
 ```bash
-./uninstall.sh --keep-state   # leave the saved settings dir in place
+stay-awake-uninstall --keep-state   # leave the saved settings dir in place
 ```
 
 ## License

@@ -44,6 +44,7 @@ pkill -f "/stay-awake-indicator" >/dev/null 2>&1 || true
 rm -f \
   "$BIN_DIR/stay-awake" \
   "$BIN_DIR/stay-awake-indicator" \
+  "$BIN_DIR/stay-awake-uninstall" \
   "$APP_DIR/stay-awake.desktop" \
   "$APP_DIR/stay-awake-indicator.desktop" \
   "$AUTOSTART_DIR/stay-awake-indicator.desktop" \

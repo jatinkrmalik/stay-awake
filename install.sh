@@ -1,8 +1,44 @@
 #!/usr/bin/env bash
 # Install Stay Awake for the current user. No root required.
+#
+#   curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/stay-awake/main/install.sh | bash
+#
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+REPO_URL="${STAY_AWAKE_REPO:-https://github.com/jatinkrmalik/stay-awake.git}"
+SRC_DIR="${STAY_AWAKE_SRC:-$HOME/.local/src/stay-awake}"
+
+resolve_repo_root() {
+  local src="${BASH_SOURCE[0]:-}"
+  [[ -n "$src" && -f "$src" ]] || return 1
+  local dir
+  dir="$(dirname "$(readlink -f "$src" 2>/dev/null || printf '%s\n' "$src")")" || return 1
+  dir="$(cd "$dir" 2>/dev/null && pwd)" || return 1
+  [[ -f "$dir/bin/stay-awake" ]] || return 1
+  printf '%s\n' "$dir"
+}
+
+bootstrap_from_git() {
+  if ! command -v git >/dev/null 2>&1; then
+    echo "git is required for the curl installer. Install git and re-run." >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$SRC_DIR")"
+  if [[ -d "$SRC_DIR/.git" ]]; then
+    echo "Updating Stay Awake in $SRC_DIR"
+    git -C "$SRC_DIR" pull --ff-only
+  else
+    echo "Cloning Stay Awake into $SRC_DIR"
+    git clone --depth 1 "$REPO_URL" "$SRC_DIR"
+  fi
+  exec "$SRC_DIR/install.sh" "$@"
+}
+
+REPO_ROOT=""
+if ! REPO_ROOT="$(resolve_repo_root)"; then
+  bootstrap_from_git "$@"
+fi
+
 BIN_DIR="${STAY_AWAKE_BIN_DIR:-$HOME/.local/bin}"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -25,6 +61,8 @@ for arg in "$@"; do
 Usage: ./install.sh [--no-start] [--no-desktop]
 
 Installs Stay Awake into ~/.local for the current user.
+
+  curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/stay-awake/main/install.sh | bash
 
   --no-start     Do not launch the top-bar icon after installing
   --no-desktop   Do not add a Desktop shortcut
@@ -77,6 +115,7 @@ mkdir -p "$BIN_DIR" "$ICON_DIR" "$HICOLOR_DIR" "$APP_DIR" "$AUTOSTART_DIR"
 
 install -m 0755 "$REPO_ROOT/bin/stay-awake" "$BIN_DIR/stay-awake"
 install -m 0755 "$REPO_ROOT/bin/stay-awake-indicator" "$BIN_DIR/stay-awake-indicator"
+install -m 0755 "$REPO_ROOT/uninstall.sh" "$BIN_DIR/stay-awake-uninstall"
 
 cp "$REPO_ROOT/data/icons/"*.svg "$ICON_DIR/"
 cp "$REPO_ROOT/data/icons/stay-awake-on.svg" "$HICOLOR_DIR/stay-awake-on.svg"
@@ -181,6 +220,7 @@ fi
 echo "Stay Awake installed."
 echo "  CLI:        $BIN_DIR/stay-awake"
 echo "  Top bar:    coffee-cup icon (click Keep awake)"
+echo "  Uninstall:  stay-awake-uninstall"
 if [[ "$INSTALL_DESKTOP_SHORTCUT" -eq 1 && -d "$DESKTOP_DIR" ]]; then
   echo "  Desktop:    $DESKTOP_DIR/Stay Awake.desktop"
 fi
