@@ -212,7 +212,12 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
 fi
 
 if [[ "$START_INDICATOR" -eq 1 ]]; then
-  pkill -f "$BIN_DIR/stay-awake-indicator" >/dev/null 2>&1 || true
+  for pid in $(pgrep -x python3 2>/dev/null || true); do
+    cmdline="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+    case "$cmdline" in
+      *"${BIN_DIR}/stay-awake-indicator"*) kill "$pid" 2>/dev/null || true ;;
+    esac
+  done
   nohup "$BIN_DIR/stay-awake-indicator" >/dev/null 2>&1 &
   disown $! 2>/dev/null || true
 fi

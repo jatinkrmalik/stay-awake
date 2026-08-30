@@ -38,8 +38,14 @@ if [[ -x "$BIN_DIR/stay-awake" ]]; then
   "$BIN_DIR/stay-awake" off --quiet 2>/dev/null || true
 fi
 
-pkill -f "$BIN_DIR/stay-awake-indicator" >/dev/null 2>&1 || true
-pkill -f "/stay-awake-indicator" >/dev/null 2>&1 || true
+# Only python processes whose cmdline is the indicator. A broad
+# pkill -f would also match shells that happen to mention the path.
+for pid in $(pgrep -x python3 2>/dev/null || true); do
+  cmdline="$(tr '\0' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+  case "$cmdline" in
+    *"${BIN_DIR}/stay-awake-indicator"*) kill "$pid" 2>/dev/null || true ;;
+  esac
+done
 
 rm -f \
   "$BIN_DIR/stay-awake" \
