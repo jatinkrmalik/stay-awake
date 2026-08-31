@@ -171,15 +171,12 @@ write_desktop \
   "$BIN_DIR/stay-awake-indicator" \
   "Show a top-bar icon to keep the screen on and block idle sleep"
 
-write_desktop \
-  "$AUTOSTART_DIR/stay-awake-indicator.desktop" \
-  "Stay Awake" \
-  "$BIN_DIR/stay-awake-indicator" \
-  "Top-bar toggle for screen blanking and idle sleep"
-{
-  echo "X-GNOME-Autostart-enabled=true"
-  echo "X-GNOME-Autostart-Delay=2"
-} >>"$AUTOSTART_DIR/stay-awake-indicator.desktop"
+# Default is start on login. Honor a previous "Start on login" off choice.
+if [[ -f "$STATE_DIR/autostart" && "$(cat "$STATE_DIR/autostart" 2>/dev/null || true)" == "off" ]]; then
+  "$BIN_DIR/stay-awake" autostart off --quiet
+else
+  "$BIN_DIR/stay-awake" autostart on --quiet
+fi
 
 if [[ "$INSTALL_DESKTOP_SHORTCUT" -eq 1 && -d "$DESKTOP_DIR" ]]; then
   write_desktop \

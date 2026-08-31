@@ -8,6 +8,8 @@ STATE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/stay-awake"
 STATE_FILE="$STATE_DIR/state"
 SAVED_FILE="$STATE_DIR/saved-gsettings"
 PID_FILE="$STATE_DIR/inhibit.pid"
+AUTOSTART_PREF="$STATE_DIR/autostart"
+AUTOSTART_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/autostart/stay-awake-indicator.desktop"
 
 icon_path() {
   local name="$1"
@@ -47,7 +49,9 @@ Commands:
   toggle       Flip on/off (default)
   on           Keep the screen on and block idle sleep
   off          Restore the previous idle and sleep settings
+  restore      Re-apply the last keep-awake state (used at login)
   status       Print the current state
+  autostart    Start on login: on, off, toggle, or status
   indicator    Start the top-bar icon
   version      Print the version
 
@@ -169,6 +173,77 @@ status() {
   else
     echo "inhibit=inactive"
   fi
+  if autostart_is_on; then
+    echo "autostart=on"
+  else
+    echo "autostart=off"
+  fi
+}
+
+autostart_is_on() {
+  if [[ -f "$AUTOSTART_PREF" ]]; then
+    [[ "$(cat "$AUTOSTART_PREF" 2>/dev/null || true)" == "on" ]]
+    return
+  fi
+  [[ -f "$AUTOSTART_FILE" ]]
+}
+
+autostart_enable() {
+  local indicator icon dest_dir
+  dest_dir="$(dirname "$AUTOSTART_FILE")"
+  mkdir -p "$dest_dir" "$STATE_DIR"
+  indicator="$SCRIPT_DIR/stay-awake-indicator"
+  if [[ ! -x "$indicator" ]]; then
+    indicator="$HOME/.local/bin/stay-awake-indicator"
+  fi
+  icon="$(icon_path stay-awake-on)"
+  cat >"$AUTOSTART_FILE" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Stay Awake
+Comment=Restore Stay Awake on login
+Exec=$indicator
+Icon=$icon
+Terminal=false
+StartupNotify=false
+Categories=Utility;
+Keywords=sleep;idle;caffeine;awake;screen;
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=2
+EOF
+  chmod +x "$AUTOSTART_FILE"
+  echo on >"$AUTOSTART_PREF"
+}
+
+autostart_disable() {
+  mkdir -p "$STATE_DIR"
+  rm -f "$AUTOSTART_FILE"
+  echo off >"$AUTOSTART_PREF"
+}
+
+restore_last_state() {
+  if is_on; then
+    turn_on
+  fi
+}
+
+autostart_cmd() {
+  local sub="${1:-status}"
+  case "$sub" in
+    on|enable) autostart_enable ;;
+    off|disable) autostart_disable ;;
+    toggle)
+      if autostart_is_on; then autostart_disable; else autostart_enable; fi
+      ;;
+    status)
+      if autostart_is_on; then echo on; else echo off; fi
+      ;;
+    *)
+      echo "Usage: stay-awake autostart [on|off|toggle|status]" >&2
+      exit 2
+      ;;
+  esac
 }
 
 start_indicator() {
@@ -215,6 +290,8 @@ case "$cmd" in
     if is_on; then turn_off; else turn_on; fi
     ;;
   status) status ;;
+  restore) restore_last_state ;;
+  autostart) autostart_cmd "${POS[1]:-status}" ;;
   indicator) start_indicator "${POS[@]:1}" ;;
   help) usage ;;
   *)

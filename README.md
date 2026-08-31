@@ -63,7 +63,9 @@ Then run `./install.sh` again.
 
 ## Usage
 
-Click the cup and check `Keep awake`. Middle-click the cup to toggle without opening the menu. Scroll up for on, down for off.
+Click the cup and check `Keep awake`. `Start on login` (on by default) brings the icon back after reboot and restores Keep awake to how you left it.
+
+Middle-click the cup to toggle without opening the menu. Scroll up for on, down for off.
 
 A gold cup means it is on. A grey cup with a slash means it is off.
 
@@ -72,6 +74,8 @@ stay-awake          # toggle
 stay-awake on
 stay-awake off
 stay-awake status
+stay-awake autostart on
+stay-awake autostart off
 stay-awake indicator
 ```
 
